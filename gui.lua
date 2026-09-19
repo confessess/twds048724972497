@@ -93,6 +93,7 @@ function Components.MasterSection(page, text, order, defaultOpen)
 
     local content = Instance.new("Frame")
     content.Size = UDim2.new(1, 0, 0, 0)
+    content.Position = UDim2.new(0, 0, 0, 32)
     content.BackgroundTransparency = 1
     content.ClipsDescendants = true
     content.Visible = defaultOpen or false
@@ -110,7 +111,7 @@ function Components.MasterSection(page, text, order, defaultOpen)
         contentHeight = contentLayout.AbsoluteContentSize.Y
         if isOpen then
             content.Size = UDim2.new(1, 0, 0, contentHeight)
-            sectionFrame.Size = UDim2.new(1, 0, 0, 28 + contentHeight + 4)
+            sectionFrame.Size = UDim2.new(1, 0, 0, 32 + contentHeight + 4)
         end
     end)
 
@@ -120,7 +121,7 @@ function Components.MasterSection(page, text, order, defaultOpen)
             arrow.Text = "▼"
             content.Visible = true
             content.Size = UDim2.new(1, 0, 0, contentHeight)
-            sectionFrame.Size = UDim2.new(1, 0, 0, 28 + contentHeight + 4)
+            sectionFrame.Size = UDim2.new(1, 0, 0, 32 + contentHeight + 4)
         else
             arrow.Text = "▶"
             content.Size = UDim2.new(1, 0, 0, 0)
