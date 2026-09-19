@@ -1,6 +1,6 @@
 -- ============================================================
--- TWD Online -- Main (Fixed)
--- ESP Only - Loads from GitHub
+-- TWD Online -- Main
+-- ESP Only
 -- ============================================================
 
 local baseUrl = "https://raw.githubusercontent.com/confessess/twds048724972497/main/"
@@ -30,7 +30,7 @@ do
             ESP.SetConfig("Enabled", v)
         end, 2)
 
-        C.Toggle(espSection, "Show NPCs / Zombies", false, function(v)
+        C.Toggle(espSection, "Show NPCs / Zombies", true, function(v)
             ESP.SetConfig("ShowNPCs", v)
         end, 3)
 
@@ -49,8 +49,8 @@ do
         -- ========================================
         local visualSection, setVisualOpen = C.MasterSection(content, "Visuals", 10, true)
 
-        C.Toggle(visualSection, "Skeletons", false, function(v)
-            ESP.SetConfig("Skeletons", v)
+        C.Toggle(visualSection, "Boxes", true, function(v)
+            ESP.SetConfig("Boxes", v)
         end, 11)
 
         C.Toggle(visualSection, "Chams", false, function(v)
@@ -85,8 +85,6 @@ do
         end, 21)
 
         setSettingsOpen(false)
-    else
-        warn("[TWD] Failed to get content host!")
     end
 end
 

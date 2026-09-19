@@ -1,5 +1,5 @@
 -- ============================================================
--- TWD Online -- GUI (ESP Only)
+-- TWD Online -- GUI
 -- ============================================================
 
 local TweenService = game:GetService("TweenService")
@@ -17,7 +17,7 @@ local Theme = {
     Blue = Color3.fromRGB(80, 140, 255),
 }
 
-local ScreenGui, MainFrame
+local ScreenGui, MainFrame, ContentHost
 local IsOpen = false
 local MenuKeybind = Enum.KeyCode.RightControl
 
@@ -190,7 +190,6 @@ function Components.Toggle(page, label, default, callback, order)
             end
             if callback then callback(state) end
         end)
-        if not ok then warn("[GUI] Toggle error: " .. tostring(err)) end
     end)
 
     return {Set = function(v) state = v end, Get = function() return state end}
@@ -277,135 +276,6 @@ function Components.Slider(page, label, min, max, default, callback, order)
     end)
 
     return {Set = function(v) value = v update() end, Get = function() return value end}
-end
-
-function Components.Dropdown(page, label, options, default, callback, order)
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(1, 0, 0, 32)
-    frame.BackgroundTransparency = 1
-    frame.LayoutOrder = order or 0
-    frame.ClipsDescendants = false
-    frame.Parent = page
-
-    local lbl = Instance.new("TextLabel")
-    lbl.Size = UDim2.new(0.4, 0, 0, 32)
-    lbl.BackgroundTransparency = 1
-    lbl.Text = label
-    lbl.TextColor3 = Theme.Text
-    lbl.Font = Enum.Font.GothamMedium
-    lbl.TextSize = 13
-    lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = frame
-
-    local box = Instance.new("TextButton")
-    box.Size = UDim2.new(0.55, 0, 0, 28)
-    box.Position = UDim2.new(0.45, 0, 0, 2)
-    box.BackgroundColor3 = Theme.Element
-    box.BorderSizePixel = 0
-    box.Text = ""
-    box.AutoButtonColor = false
-    box.Parent = frame
-    corner(box, 4)
-    stroke(box)
-
-    local valueLbl = Instance.new("TextLabel")
-    valueLbl.Size = UDim2.new(1, -30, 1, 0)
-    valueLbl.Position = UDim2.new(0, 10, 0, 0)
-    valueLbl.BackgroundTransparency = 1
-    valueLbl.Text = tostring(default or "Select...")
-    valueLbl.TextColor3 = Theme.TextDim
-    valueLbl.Font = Enum.Font.GothamMedium
-    valueLbl.TextSize = 12
-    valueLbl.TextXAlignment = Enum.TextXAlignment.Left
-    valueLbl.Parent = box
-
-    local arrow = Instance.new("TextLabel")
-    arrow.Size = UDim2.fromOffset(16, 16)
-    arrow.Position = UDim2.new(1, -22, 0.5, -8)
-    arrow.BackgroundTransparency = 1
-    arrow.Text = "▼"
-    arrow.TextColor3 = Theme.TextDim
-    arrow.Font = Enum.Font.GothamBold
-    arrow.TextSize = 8
-    arrow.Parent = box
-
-    local list = Instance.new("ScrollingFrame")
-    list.Size = UDim2.new(0.55, 0, 0, 0)
-    list.Position = UDim2.new(0.45, 0, 0, 34)
-    list.BackgroundColor3 = Theme.Background
-    list.BorderSizePixel = 0
-    list.ClipsDescendants = true
-    list.Visible = false
-    list.ZIndex = 10
-    list.ScrollBarThickness = 4
-    list.ScrollBarImageColor3 = Theme.Stroke
-    list.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    list.CanvasSize = UDim2.fromScale(0, 0)
-    list.Parent = frame
-    corner(list, 4)
-    stroke(list)
-
-    local listLayout = Instance.new("UIListLayout")
-    listLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    listLayout.Parent = list
-
-    local expanded = false
-    local currentValue = default
-
-    local function rebuild()
-        for _, child in ipairs(list:GetChildren()) do
-            if child:IsA("TextButton") then child:Destroy() end
-        end
-        for i, opt in ipairs(options) do
-            local optBtn = Instance.new("TextButton")
-            optBtn.Size = UDim2.new(1, 0, 0, 26)
-            optBtn.BackgroundColor3 = Theme.Element
-            optBtn.BorderSizePixel = 0
-            optBtn.Text = ""
-            optBtn.AutoButtonColor = false
-            optBtn.LayoutOrder = i
-            optBtn.ZIndex = 11
-            optBtn.Parent = list
-
-            local optLbl = Instance.new("TextLabel")
-            optLbl.Size = UDim2.new(1, -16, 1, 0)
-            optLbl.Position = UDim2.new(0, 8, 0, 0)
-            optLbl.BackgroundTransparency = 1
-            optLbl.Text = tostring(opt)
-            optLbl.TextColor3 = (currentValue == opt) and Theme.Blue or Theme.TextDim
-            optLbl.Font = Enum.Font.GothamMedium
-            optLbl.TextSize = 12
-            optLbl.TextXAlignment = Enum.TextXAlignment.Left
-            optLbl.ZIndex = 12
-            optLbl.Parent = optBtn
-
-            optBtn.MouseButton1Click:Connect(function()
-                local ok, err = pcall(function()
-                    currentValue = opt
-                    valueLbl.Text = tostring(opt)
-                    if callback then callback(opt) end
-                    expanded = false
-                    tween(list, {Size = UDim2.new(0.55, 0, 0, 0)})
-                    task.delay(0.15, function() list.Visible = false end)
-                end)
-                if not ok then warn("[GUI] Dropdown error: " .. tostring(err)) end
-            end)
-        end
-    end
-
-    box.MouseButton1Click:Connect(function()
-        expanded = not expanded
-        if expanded then
-            rebuild()
-            list.Visible = true
-            tween(list, {Size = UDim2.new(0.55, 0, 0, math.min(#options * 28, 150))})
-        else
-            tween(list, {Size = UDim2.new(0.55, 0, 0, 0)})
-            task.delay(0.15, function() list.Visible = false end)
-        end
-    end)
-
-    return {Set = function(v) currentValue = v valueLbl.Text = tostring(v) end, Get = function() return currentValue end}
 end
 
 function Components.Keybind(page, label, default, callback, order)
@@ -514,7 +384,7 @@ local function build()
         GUI.ToggleMenu()
     end)
 
-    local ContentHost = Instance.new("ScrollingFrame")
+    ContentHost = Instance.new("ScrollingFrame")
     ContentHost.Size = UDim2.new(1, -30, 1, -50)
     ContentHost.Position = UDim2.new(0, 15, 0, 45)
     ContentHost.BackgroundTransparency = 1
@@ -567,7 +437,7 @@ function GUI.Cleanup()
     if ScreenGui then ScreenGui:Destroy() end
 end
 
-function GUI.Init(deps)
+function GUI.Init()
     local ok, err = pcall(function()
         build()
     end)
