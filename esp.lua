@@ -1,6 +1,6 @@
 -- ============================================================
--- The Walking Dead Online -- ESP
--- Player ESP, Zombie ESP, Loot ESP with toggles
+-- TWD Online -- ESP
+-- Players + NPCs, skeletons, chams, names, health, items, distance
 -- ============================================================
 
 local ESP = {}
@@ -10,106 +10,160 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 
-local Config = nil
-local Utils = nil
-local GUI = nil
+local Config = {
+    Enabled = false,
+    ShowNPCs = false,
+    InfiniteDistance = false,
+    MaxDistance = 500,
 
--- ESP Colors
-local COLORS = {
-    Player = Color3.fromRGB(255, 60, 60),      -- Red for players
-    Zombie = Color3.fromRGB(60, 255, 60),      -- Green for zombies
-    Loot = {
-        Weapons = Color3.fromRGB(255, 100, 100),    -- Red-ish
-        Food = Color3.fromRGB(255, 200, 100),       -- Orange
-        Meds = Color3.fromRGB(100, 255, 100),       -- Green
-        Ammo = Color3.fromRGB(255, 255, 100),       -- Yellow
-        Resources = Color3.fromRGB(150, 150, 150),  -- Gray
-        Attachments = Color3.fromRGB(200, 100, 255),-- Purple
-        Clothes = Color3.fromRGB(100, 200, 255),    -- Light blue
-        Other = Color3.fromRGB(200, 200, 200),      -- Light gray
-    }
+    Skeletons = false,
+    Chams = false,
+    Names = true,
+    Health = true,
+    HeldItem = true,
+    Distance = true,
+
+    PlayerColor = Color3.fromRGB(255, 60, 60),
+    NPCColor = Color3.fromRGB(60, 255, 60),
 }
 
--- ESP Objects storage
-local PlayerESPObjects = {}
-local ZombieESPObjects = {}
-local LootESPObjects = {}
+-- Storage
+local PlayerObjects = {}
+local NPCObjects = {}
+local SkeletonLines = {}
 
 -- ------------------------------------------------------------
--- Helper: Create Billboard ESP
+-- Skeleton Drawing
 -- ------------------------------------------------------------
 
-local function CreateBillboardESP(parent, name, color, size)
+local BONE_CONNECTIONS = {
+    {"Head", "UpperTorso"},
+    {"UpperTorso", "LowerTorso"},
+    {"UpperTorso", "LeftUpperArm"},
+    {"LeftUpperArm", "LeftLowerArm"},
+    {"LeftLowerArm", "LeftHand"},
+    {"UpperTorso", "RightUpperArm"},
+    {"RightUpperArm", "RightLowerArm"},
+    {"RightLowerArm", "RightHand"},
+    {"LowerTorso", "LeftUpperLeg"},
+    {"LeftUpperLeg", "LeftLowerLeg"},
+    {"LeftLowerLeg", "LeftFoot"},
+    {"LowerTorso", "RightUpperLeg"},
+    {"RightUpperLeg", "RightLowerLeg"},
+    {"RightLowerLeg", "RightFoot"},
+}
+
+local function CreateSkeletonLine()
+    local line = Drawing.new("Line")
+    line.Visible = false
+    line.Thickness = 1.5
+    line.Transparency = 1
+    line.Color = Color3.new(1, 1, 1)
+    return line
+end
+
+local function UpdateSkeleton(character, color, maxDist)
+    local lines = SkeletonLines[character]
+    if not lines then
+        lines = {}
+        for i = 1, #BONE_CONNECTIONS do
+            lines[i] = CreateSkeletonLine()
+        end
+        SkeletonLines[character] = lines
+    end
+
+    local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    local root = character:FindFirstChild("HumanoidRootPart")
+    if not localRoot or not root then
+        for _, line in ipairs(lines) do
+            line.Visible = false
+        end
+        return
+    end
+
+    local distance = (root.Position - localRoot.Position).Magnitude
+    if not Config.InfiniteDistance and distance > maxDist then
+        for _, line in ipairs(lines) do
+            line.Visible = false
+        end
+        return
+    end
+
+    local visible = false
+
+    for i, connection in ipairs(BONE_CONNECTIONS) do
+        local partA = character:FindFirstChild(connection[1])
+        local partB = character:FindFirstChild(connection[2])
+        local line = lines[i]
+
+        if partA and partB then
+            local posA, visA = Camera:WorldToViewportPoint(partA.Position)
+            local posB, visB = Camera:WorldToViewportPoint(partB.Position)
+
+            if visA and visB then
+                line.From = Vector2.new(posA.X, posA.Y)
+                line.To = Vector2.new(posB.X, posB.Y)
+                line.Color = color
+                line.Visible = true
+                visible = true
+            else
+                line.Visible = false
+            end
+        else
+            line.Visible = false
+        end
+    end
+
+    return visible
+end
+
+local function RemoveSkeleton(character)
+    local lines = SkeletonLines[character]
+    if lines then
+        for _, line in ipairs(lines) do
+            line:Remove()
+        end
+        SkeletonLines[character] = nil
+    end
+end
+
+-- ------------------------------------------------------------
+-- Entity ESP Creation
+-- ------------------------------------------------------------
+
+local function CreateESP(model, isNPC)
+    if not model then return nil end
+
+    local head = model:FindFirstChild("Head")
+    local humanoid = model:FindFirstChildOfClass("Humanoid")
+    local root = model:FindFirstChild("HumanoidRootPart")
+
+    if not head or not humanoid or not root then return nil end
+
+    local color = isNPC and Config.NPCColor or Config.PlayerColor
+
+    -- Billboard
     local billboard = Instance.new("BillboardGui")
-    billboard.Name = "ESP_" .. name
+    billboard.Name = "ESP"
+    billboard.Adornee = head
     billboard.AlwaysOnTop = true
     billboard.LightInfluence = 0
-    billboard.Size = size or UDim2.fromOffset(200, 60)
+    billboard.Size = UDim2.fromOffset(200, 80)
     billboard.StudsOffsetWorldSpace = Vector3.new(0, 2.5, 0)
-    billboard.Parent = parent
-    return billboard
-end
+    billboard.Parent = head
 
-local function CreateBoxESP(parent, color)
-    local box = Instance.new("BoxHandleAdornment")
-    box.Name = "ESP_Box"
-    box.Color3 = color
-    box.Transparency = 0.5
-    box.Size = Vector3.new(4, 6, 2)
-    box.AlwaysOnTop = true
-    box.ZIndex = 10
-    box.Adornee = parent:FindFirstChild("HumanoidRootPart") or parent:FindFirstChild("Head") or parent
-    box.Parent = parent
-    return box
-end
-
-local function CreateTracer(from, to, color)
-    -- Tracers would use Beam or LineHandleAdornment
-    -- For simplicity, we'll use a Highlight for now
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "ESP_Tracer"
-    highlight.FillColor = color
-    highlight.OutlineColor = color
-    highlight.FillTransparency = 0.8
-    highlight.OutlineTransparency = 0.5
-    highlight.Adornee = to
-    highlight.Parent = from
-    return highlight
-end
-
--- ------------------------------------------------------------
--- PLAYER ESP
--- ------------------------------------------------------------
-
-local function CreatePlayerESP(player)
-    if PlayerESPObjects[player] then return end
-    if not player.Character then return end
-
-    local character = player.Character
-    local head = character:FindFirstChild("Head")
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    local root = character:FindFirstChild("HumanoidRootPart")
-
-    if not head or not humanoid or not root then return end
-
-    local S = Config.Settings
-
-    -- Main billboard
-    local billboard = CreateBillboardESP(head, "Player", COLORS.Player)
-    billboard.MaxDistance = S.PlayerESP_MaxDistance
-
-    -- Name label
+    -- Name
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Size = UDim2.new(1, 0, 0, 16)
     nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = player.Name
-    nameLabel.TextColor3 = COLORS.Player
+    nameLabel.Text = isNPC and (model.Name or "NPC") or (model.Name or "Player")
+    nameLabel.TextColor3 = color
     nameLabel.TextStrokeTransparency = 0.3
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.TextSize = 13
     nameLabel.Parent = billboard
 
-    -- Health bar (vertical)
+    -- Health bar (vertical, left side)
     local healthBg = Instance.new("Frame")
     healthBg.Size = UDim2.new(0, 5, 0, 40)
     healthBg.Position = UDim2.new(0, -10, 0.5, -20)
@@ -126,6 +180,18 @@ local function CreatePlayerESP(player)
     healthFill.BorderSizePixel = 0
     healthFill.Parent = healthBg
 
+    -- Held item label
+    local itemLabel = Instance.new("TextLabel")
+    itemLabel.Size = UDim2.new(1, 0, 0, 14)
+    itemLabel.Position = UDim2.new(0, 0, 0, 18)
+    itemLabel.BackgroundTransparency = 1
+    itemLabel.Text = ""
+    itemLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+    itemLabel.TextStrokeTransparency = 0.5
+    itemLabel.Font = Enum.Font.GothamMedium
+    itemLabel.TextSize = 11
+    itemLabel.Parent = billboard
+
     -- Distance label
     local distLabel = Instance.new("TextLabel")
     distLabel.Size = UDim2.new(1, 0, 0, 14)
@@ -138,508 +204,213 @@ local function CreatePlayerESP(player)
     distLabel.TextSize = 11
     distLabel.Parent = billboard
 
-    -- Weapon label (if they have one equipped)
-    local weaponLabel = Instance.new("TextLabel")
-    weaponLabel.Size = UDim2.new(1, 0, 0, 12)
-    weaponLabel.Position = UDim2.new(0, 0, 0, 18)
-    weaponLabel.BackgroundTransparency = 1
-    weaponLabel.Text = ""
-    weaponLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
-    weaponLabel.TextStrokeTransparency = 0.5
-    weaponLabel.Font = Enum.Font.GothamMedium
-    weaponLabel.TextSize = 10
-    weaponLabel.Parent = billboard
-
-    -- Chams (Highlight)
+    -- Chams
     local highlight = Instance.new("Highlight")
-    highlight.Adornee = character
-    highlight.FillColor = COLORS.Player
+    highlight.Adornee = model
+    highlight.FillColor = color
     highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
     highlight.FillTransparency = 0.5
     highlight.OutlineTransparency = 0
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = character
+    highlight.Parent = model
 
-    -- Box ESP
-    local box = CreateBoxESP(character, COLORS.Player)
-
-    PlayerESPObjects[player] = {
-        player = player,
-        character = character,
+    return {
+        model = model,
         humanoid = humanoid,
         root = root,
         billboard = billboard,
         nameLabel = nameLabel,
         healthBg = healthBg,
         healthFill = healthFill,
+        itemLabel = itemLabel,
         distLabel = distLabel,
-        weaponLabel = weaponLabel,
         highlight = highlight,
-        box = box,
+        isNPC = isNPC,
     }
 end
 
-local function UpdatePlayerESP()
-    local S = Config.Settings
+-- ------------------------------------------------------------
+-- Update ESP for entity
+-- ------------------------------------------------------------
 
-    for player, data in pairs(PlayerESPObjects) do
-        -- Check if player still valid
-        if not player or not player.Parent or not data.character or not data.character.Parent then
-            if data.billboard then data.billboard:Destroy() end
-            if data.highlight then data.highlight:Destroy() end
-            if data.box then data.box:Destroy() end
-            PlayerESPObjects[player] = nil
-            continue
+local function UpdateESP(data)
+    if not data or not data.model or not data.model.Parent then return false end
+
+    local humanoid = data.humanoid
+    if not humanoid or humanoid.Health <= 0 then
+        if data.billboard then data.billboard.Enabled = false end
+        if data.highlight then data.highlight.Enabled = false end
+        RemoveSkeleton(data.model)
+        return false
+    end
+
+    if not Config.Enabled then
+        if data.billboard then data.billboard.Enabled = false end
+        if data.highlight then data.highlight.Enabled = false end
+        RemoveSkeleton(data.model)
+        return true
+    end
+
+    -- Check NPC toggle
+    if data.isNPC and not Config.ShowNPCs then
+        if data.billboard then data.billboard.Enabled = false end
+        if data.highlight then data.highlight.Enabled = false end
+        RemoveSkeleton(data.model)
+        return true
+    end
+
+    -- Distance check
+    local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not localRoot then return true end
+
+    local distance = (data.root.Position - localRoot.Position).Magnitude
+    if not Config.InfiniteDistance and distance > Config.MaxDistance then
+        if data.billboard then data.billboard.Enabled = false end
+        if data.highlight then data.highlight.Enabled = false end
+        RemoveSkeleton(data.model)
+        return true
+    end
+
+    -- Enable billboard
+    if data.billboard then
+        data.billboard.Enabled = true
+
+        -- Name
+        if data.nameLabel then
+            data.nameLabel.Visible = Config.Names
         end
 
-        -- Check if ESP enabled
-        if not S.PlayerESP_Enabled then
-            if data.billboard then data.billboard.Enabled = false end
-            if data.highlight then data.highlight.Enabled = false end
-            if data.box then data.box.Enabled = false end
-            continue
-        end
+        -- Health
+        if data.healthBg and data.healthFill then
+            data.healthBg.Visible = Config.Health
+            local pct = math.clamp(humanoid.Health / math.max(humanoid.MaxHealth, 1), 0, 1)
+            data.healthFill.Size = UDim2.new(1, 0, pct, 0)
 
-        -- Check if player alive
-        local humanoid = data.humanoid
-        if not humanoid or humanoid.Health <= 0 then
-            if data.billboard then data.billboard.Enabled = false end
-            if data.highlight then data.highlight.Enabled = false end
-            if data.box then data.box.Enabled = false end
-            continue
-        end
-
-        -- Team check
-        if S.PlayerESP_TeamCheck and Utils.IsTeammate(player) then
-            if data.billboard then data.billboard.Enabled = false end
-            if data.highlight then data.highlight.Enabled = false end
-            if data.box then data.box.Enabled = false end
-            continue
-        end
-
-        -- Calculate distance
-        local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local distance = 0
-        if localRoot and data.root then
-            distance = (data.root.Position - localRoot.Position).Magnitude
-        end
-
-        -- Max distance check
-        if distance > S.PlayerESP_MaxDistance then
-            if data.billboard then data.billboard.Enabled = false end
-            if data.highlight then data.highlight.Enabled = false end
-            if data.box then data.box.Enabled = false end
-            continue
-        end
-
-        -- Enable ESP elements
-        if data.billboard then
-            data.billboard.Enabled = true
-            data.billboard.MaxDistance = S.PlayerESP_MaxDistance
-
-            -- Name
-            if data.nameLabel then
-                data.nameLabel.Visible = S.PlayerESP_Names
-            end
-
-            -- Health
-            if data.healthBg and data.healthFill then
-                data.healthBg.Visible = S.PlayerESP_Health
-                local pct = math.clamp(humanoid.Health / math.max(humanoid.MaxHealth, 1), 0, 1)
-                data.healthFill.Size = UDim2.new(1, 0, pct, 0)
-
-                if pct > 0.6 then
-                    data.healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-                elseif pct > 0.3 then
-                    data.healthFill.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
-                else
-                    data.healthFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-                end
-            end
-
-            -- Distance
-            if data.distLabel then
-                data.distLabel.Visible = S.PlayerESP_Distance
-                data.distLabel.Text = string.format("%.0f studs", distance)
-            end
-
-            -- Weapon (check what they're holding)
-            if data.weaponLabel then
-                data.weaponLabel.Visible = S.PlayerESP_Weapon
-                local tool = player.Character and player.Character:FindFirstChildOfClass("Tool")
-                if tool then
-                    data.weaponLabel.Text = tool.Name
-                else
-                    data.weaponLabel.Text = "Unarmed"
-                end
+            if pct > 0.6 then
+                data.healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+            elseif pct > 0.3 then
+                data.healthFill.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
+            else
+                data.healthFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
             end
         end
 
-        -- Chams
-        if data.highlight then
-            data.highlight.Enabled = S.PlayerESP_Chams
+        -- Held item
+        if data.itemLabel then
+            data.itemLabel.Visible = Config.HeldItem
+            local tool = data.model:FindFirstChildOfClass("Tool")
+            if tool then
+                data.itemLabel.Text = tool.Name
+            else
+                data.itemLabel.Text = ""
+            end
         end
 
-        -- Box
-        if data.box then
-            data.box.Enabled = S.PlayerESP_Boxes
+        -- Distance
+        if data.distLabel then
+            data.distLabel.Visible = Config.Distance
+            data.distLabel.Text = string.format("%.0f studs", distance)
         end
     end
-end
-
--- ------------------------------------------------------------
--- ZOMBIE ESP
--- ------------------------------------------------------------
-
-local function CreateZombieESP(zombie)
-    if ZombieESPObjects[zombie] then return end
-
-    local head = zombie:FindFirstChild("Head")
-    local humanoid = zombie:FindFirstChildOfClass("Humanoid")
-    local root = zombie:FindFirstChild("HumanoidRootPart")
-
-    if not head or not humanoid or not root then return end
-
-    local S = Config.Settings
-
-    -- Main billboard
-    local billboard = CreateBillboardESP(head, "Zombie", COLORS.Zombie)
-    billboard.MaxDistance = S.ZombieESP_MaxDistance
-    billboard.StudsOffsetWorldSpace = Vector3.new(0, 3, 0)
-
-    -- Name/Type label
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 0, 16)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = zombie.Name
-    nameLabel.TextColor3 = COLORS.Zombie
-    nameLabel.TextStrokeTransparency = 0.3
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextSize = 12
-    nameLabel.Parent = billboard
-
-    -- Health bar
-    local healthBg = Instance.new("Frame")
-    healthBg.Size = UDim2.new(0, 4, 0, 30)
-    healthBg.Position = UDim2.new(0, -8, 0.5, -15)
-    healthBg.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    healthBg.BackgroundTransparency = 0.4
-    healthBg.BorderSizePixel = 0
-    healthBg.Parent = billboard
-
-    local healthFill = Instance.new("Frame")
-    healthFill.Size = UDim2.new(1, 0, 1, 0)
-    healthFill.Position = UDim2.new(0, 0, 1, 0)
-    healthFill.AnchorPoint = Vector2.new(0, 1)
-    healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-    healthFill.BorderSizePixel = 0
-    healthFill.Parent = healthBg
-
-    -- Distance label
-    local distLabel = Instance.new("TextLabel")
-    distLabel.Size = UDim2.new(1, 0, 0, 12)
-    distLabel.Position = UDim2.new(0, 0, 1, 2)
-    distLabel.BackgroundTransparency = 1
-    distLabel.Text = ""
-    distLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    distLabel.TextStrokeTransparency = 0.5
-    distLabel.Font = Enum.Font.GothamMedium
-    distLabel.TextSize = 10
-    distLabel.Parent = billboard
 
     -- Chams
-    local highlight = Instance.new("Highlight")
-    highlight.Adornee = zombie
-    highlight.FillColor = COLORS.Zombie
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    highlight.FillTransparency = 0.6
-    highlight.OutlineTransparency = 0.2
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = zombie
-
-    -- Box
-    local box = CreateBoxESP(zombie, COLORS.Zombie)
-
-    ZombieESPObjects[zombie] = {
-        zombie = zombie,
-        humanoid = humanoid,
-        root = root,
-        billboard = billboard,
-        nameLabel = nameLabel,
-        healthBg = healthBg,
-        healthFill = healthFill,
-        distLabel = distLabel,
-        highlight = highlight,
-        box = box,
-    }
-end
-
-local function UpdateZombieESP()
-    local S = Config.Settings
-
-    -- Get current zombies
-    local zombies = Utils.GetZombies()
-
-    -- Create ESP for new zombies
-    for _, zombie in ipairs(zombies) do
-        if not ZombieESPObjects[zombie] then
-            CreateZombieESP(zombie)
-        end
+    if data.highlight then
+        data.highlight.Enabled = Config.Chams
     end
 
-    -- Update all zombie ESP
-    for zombie, data in pairs(ZombieESPObjects) do
-        -- Check if zombie still exists
-        if not zombie or not zombie.Parent then
-            if data.billboard then data.billboard:Destroy() end
-            if data.highlight then data.highlight:Destroy() end
-            if data.box then data.box:Destroy() end
-            ZombieESPObjects[zombie] = nil
-            continue
+    -- Skeleton
+    if Config.Skeletons then
+        local color = data.isNPC and Config.NPCColor or Config.PlayerColor
+        UpdateSkeleton(data.model, color, Config.MaxDistance)
+    else
+        RemoveSkeleton(data.model)
+    end
+
+    return true
+end
+
+-- ------------------------------------------------------------
+-- NPC Detection
+-- ------------------------------------------------------------
+
+local function IsNPC(model)
+    if not model or not model:IsA("Model") then return false end
+    if Players:GetPlayerFromCharacter(model) then return false end
+
+    local humanoid = model:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return false end
+
+    -- Check name patterns
+    local name = model.Name:lower()
+    if name:find("zombie") or name:find("walker") or name:find("infected")
+        or name:find("crawler") or name:find("runner") or name:find("bloater")
+        or name:find("npc") or name:find("bandit") or name:find("raider") then
+        return true
+    end
+
+    -- Check parent folders
+    local parent = model.Parent
+    while parent and parent ~= workspace do
+        local pname = parent.Name:lower()
+        if pname:find("zombie") or pname:find("npc") or pname:find("walker") or pname:find("infected") then
+            return true
         end
+        parent = parent.Parent
+    end
 
-        -- Check if enabled
-        if not S.ZombieESP_Enabled then
-            if data.billboard then data.billboard.Enabled = false end
-            if data.highlight then data.highlight.Enabled = false end
-            if data.box then data.box.Enabled = false end
-            continue
-        end
+    return false
+end
 
-        -- Check if alive
-        local humanoid = data.humanoid
-        if not humanoid or humanoid.Health <= 0 then
-            if data.billboard then data.billboard.Enabled = false end
-            if data.highlight then data.highlight.Enabled = false end
-            if data.box then data.box.Enabled = false end
-            continue
-        end
+local function GetNPCs()
+    local npcs = {}
 
-        -- Calculate distance
-        local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local distance = 0
-        if localRoot and data.root then
-            distance = (data.root.Position - localRoot.Position).Magnitude
-        end
+    -- Check common containers
+    local containers = {
+        workspace:FindFirstChild("Zombies"),
+        workspace:FindFirstChild("NPCs"),
+        workspace:FindFirstChild("Walkers"),
+        workspace:FindFirstChild("Infected"),
+        workspace:FindFirstChild("Entities"),
+        workspace:FindFirstChild("Bandits"),
+    }
 
-        -- Max distance
-        if distance > S.ZombieESP_MaxDistance then
-            if data.billboard then data.billboard.Enabled = false end
-            if data.highlight then data.highlight.Enabled = false end
-            if data.box then data.box.Enabled = false end
-            continue
-        end
-
-        -- Enable ESP
-        if data.billboard then
-            data.billboard.Enabled = true
-
-            -- Name
-            if data.nameLabel then
-                data.nameLabel.Visible = S.ZombieESP_Names or S.ZombieESP_ShowType
-            end
-
-            -- Health
-            if data.healthBg and data.healthFill then
-                data.healthBg.Visible = S.ZombieESP_Health
-                local pct = math.clamp(humanoid.Health / math.max(humanoid.MaxHealth, 1), 0, 1)
-                data.healthFill.Size = UDim2.new(1, 0, pct, 0)
-
-                if pct > 0.5 then
-                    data.healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
-                elseif pct > 0.25 then
-                    data.healthFill.BackgroundColor3 = Color3.fromRGB(255, 200, 0)
-                else
-                    data.healthFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    for _, container in ipairs(containers) do
+        if container then
+            for _, child in ipairs(container:GetChildren()) do
+                if child:IsA("Model") and IsNPC(child) then
+                    local humanoid = child:FindFirstChildOfClass("Humanoid")
+                    if humanoid and humanoid.Health > 0 then
+                        table.insert(npcs, child)
+                    end
                 end
             end
-
-            -- Distance
-            if data.distLabel then
-                data.distLabel.Visible = S.ZombieESP_Distance
-                data.distLabel.Text = string.format("%.0f studs", distance)
-            end
-        end
-
-        -- Chams
-        if data.highlight then
-            data.highlight.Enabled = S.ZombieESP_Chams
-        end
-
-        -- Box
-        if data.box then
-            data.box.Enabled = S.ZombieESP_Boxes
         end
     end
+
+    -- Scan workspace
+    for _, child in ipairs(workspace:GetChildren()) do
+        if child:IsA("Model") and IsNPC(child) then
+            local humanoid = child:FindFirstChildOfClass("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                local alreadyAdded = false
+                for _, n in ipairs(npcs) do
+                    if n == child then
+                        alreadyAdded = true
+                        break
+                    end
+                end
+                if not alreadyAdded then
+                    table.insert(npcs, child)
+                end
+            end
+        end
+    end
+
+    return npcs
 end
 
 -- ------------------------------------------------------------
--- LOOT ESP
--- ------------------------------------------------------------
-
-local function CreateLootESP(item)
-    if LootESPObjects[item] then return end
-
-    local S = Config.Settings
-
-    -- Determine loot type and color
-    local lootType = Utils.GetLootType(item.Name)
-    local color = COLORS.Loot[lootType] or COLORS.Loot.Other
-
-    -- Find the part to attach to
-    local attachPart = item
-    if item:IsA("Model") then
-        attachPart = item:FindFirstChild("Handle") or item:FindFirstChildWhichIsA("BasePart") or item.PrimaryPart
-    end
-
-    if not attachPart then return end
-
-    -- Billboard
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "ESP_Loot"
-    billboard.Adornee = attachPart
-    billboard.AlwaysOnTop = true
-    billboard.LightInfluence = 0
-    billboard.Size = UDim2.fromOffset(150, 40)
-    billboard.StudsOffsetWorldSpace = Vector3.new(0, 1.5, 0)
-    billboard.MaxDistance = S.LootESP_MaxDistance
-    billboard.Parent = attachPart
-
-    -- Name label
-    local nameLabel = Instance.new("TextLabel")
-    nameLabel.Size = UDim2.new(1, 0, 0, 14)
-    nameLabel.BackgroundTransparency = 1
-    nameLabel.Text = item.Name
-    nameLabel.TextColor3 = color
-    nameLabel.TextStrokeTransparency = 0.3
-    nameLabel.Font = Enum.Font.GothamBold
-    nameLabel.TextSize = 11
-    nameLabel.Parent = billboard
-
-    -- Distance label
-    local distLabel = Instance.new("TextLabel")
-    distLabel.Size = UDim2.new(1, 0, 0, 12)
-    distLabel.Position = UDim2.new(0, 0, 0, 16)
-    distLabel.BackgroundTransparency = 1
-    distLabel.Text = ""
-    distLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
-    distLabel.TextStrokeTransparency = 0.5
-    distLabel.Font = Enum.Font.GothamMedium
-    distLabel.TextSize = 10
-    distLabel.Parent = billboard
-
-    -- Highlight for visibility
-    local highlight = Instance.new("Highlight")
-    highlight.Adornee = item
-    highlight.FillColor = color
-    highlight.OutlineColor = color
-    highlight.FillTransparency = 0.7
-    highlight.OutlineTransparency = 0.3
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Parent = item
-
-    LootESPObjects[item] = {
-        item = item,
-        lootType = lootType,
-        color = color,
-        billboard = billboard,
-        nameLabel = nameLabel,
-        distLabel = distLabel,
-        highlight = highlight,
-        attachPart = attachPart,
-    }
-end
-
-local function UpdateLootESP()
-    local S = Config.Settings
-
-    -- Get current loot
-    local lootItems = Utils.GetLootItems()
-
-    -- Create ESP for new items
-    for _, item in ipairs(lootItems) do
-        if not LootESPObjects[item] then
-            CreateLootESP(item)
-        end
-    end
-
-    -- Update all loot ESP
-    for item, data in pairs(LootESPObjects) do
-        -- Check if item still exists
-        if not item or not item.Parent then
-            if data.billboard then data.billboard:Destroy() end
-            if data.highlight then data.highlight:Destroy() end
-            LootESPObjects[item] = nil
-            continue
-        end
-
-        -- Check if loot ESP enabled
-        if not S.LootESP_Enabled then
-            if data.billboard then data.billboard.Enabled = false end
-            if data.highlight then data.highlight.Enabled = false end
-            continue
-        end
-
-        -- Check if this loot type is enabled
-        local typeEnabled = false
-        if data.lootType == "Weapons" and S.LootESP_Weapons then typeEnabled = true
-        elseif data.lootType == "Food" and S.LootESP_Food then typeEnabled = true
-        elseif data.lootType == "Meds" and S.LootESP_Meds then typeEnabled = true
-        elseif data.lootType == "Ammo" and S.LootESP_Ammo then typeEnabled = true
-        elseif data.lootType == "Resources" and S.LootESP_Resources then typeEnabled = true
-        elseif data.lootType == "Attachments" and S.LootESP_Attachments then typeEnabled = true
-        elseif data.lootType == "Clothes" and S.LootESP_Clothes then typeEnabled = true
-        elseif data.lootType == "Other" then typeEnabled = true -- Always show unknown items
-        end
-
-        if not typeEnabled then
-            if data.billboard then data.billboard.Enabled = false end
-            if data.highlight then data.highlight.Enabled = false end
-            continue
-        end
-
-        -- Calculate distance
-        local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        local distance = 0
-        if localRoot and data.attachPart then
-            local ok, pos = pcall(function() return data.attachPart.Position end)
-            if ok and pos then
-                distance = (pos - localRoot.Position).Magnitude
-            end
-        end
-
-        -- Max distance
-        if distance > S.LootESP_MaxDistance then
-            if data.billboard then data.billboard.Enabled = false end
-            if data.highlight then data.highlight.Enabled = false end
-            continue
-        end
-
-        -- Enable ESP
-        if data.billboard then
-            data.billboard.Enabled = true
-
-            -- Name
-            if data.nameLabel then
-                data.nameLabel.Visible = S.LootESP_ShowName
-            end
-
-            -- Distance
-            if data.distLabel then
-                data.distLabel.Visible = S.LootESP_ShowDistance
-                data.distLabel.Text = string.format("%.0f studs", distance)
-            end
-        end
-
-        -- Highlight
-        if data.highlight then
-            data.highlight.Enabled = true
-        end
-    end
-end
-
--- ------------------------------------------------------------
--- Player management
+-- Player Management
 -- ------------------------------------------------------------
 
 local function OnPlayerAdded(player)
@@ -650,7 +421,12 @@ local function OnPlayerAdded(player)
         character:WaitForChild("HumanoidRootPart", 5)
         task.wait(0.3)
 
-        CreatePlayerESP(player)
+        if not PlayerObjects[player] then
+            local data = CreateESP(character, false)
+            if data then
+                PlayerObjects[player] = data
+            end
+        end
     end)
 
     if player.Character then
@@ -658,22 +434,26 @@ local function OnPlayerAdded(player)
             player.Character:WaitForChild("Head", 5)
             task.wait(0.3)
 
-            CreatePlayerESP(player)
+            if not PlayerObjects[player] then
+                local data = CreateESP(player.Character, false)
+                if data then
+                    PlayerObjects[player] = data
+                end
+            end
         end)
     end
 
     player.CharacterRemoving:Connect(function(character)
-        if PlayerESPObjects[player] then
-            local data = PlayerESPObjects[player]
+        if PlayerObjects[player] then
+            local data = PlayerObjects[player]
             if data.billboard then data.billboard:Destroy() end
             if data.highlight then data.highlight:Destroy() end
-            if data.box then data.box:Destroy() end
-            PlayerESPObjects[player] = nil
+            RemoveSkeleton(character)
+            PlayerObjects[player] = nil
         end
     end)
 end
 
--- Init
 for _, player in ipairs(Players:GetPlayers()) do
     if player ~= LocalPlayer then
         OnPlayerAdded(player)
@@ -683,73 +463,136 @@ end
 Players.PlayerAdded:Connect(OnPlayerAdded)
 
 Players.PlayerRemoving:Connect(function(player)
-    if PlayerESPObjects[player] then
-        local data = PlayerESPObjects[player]
+    if PlayerObjects[player] then
+        local data = PlayerObjects[player]
         if data.billboard then data.billboard:Destroy() end
         if data.highlight then data.highlight:Destroy() end
-        if data.box then data.box:Destroy() end
-        PlayerESPObjects[player] = nil
+        if data.model then RemoveSkeleton(data.model) end
+        PlayerObjects[player] = nil
     end
 end)
 
 -- ------------------------------------------------------------
--- Main Update
+-- Main Update Loop
 -- ------------------------------------------------------------
 
+local lastNPCScan = 0
+local NPC_SCAN_INTERVAL = 0.5
+
 function ESP.Update()
-    if not Config or not Config.Settings then return end
-    UpdatePlayerESP()
-    UpdateZombieESP()
-    UpdateLootESP()
+    if not Config.Enabled then
+        -- Hide all
+        for _, data in pairs(PlayerObjects) do
+            if data.billboard then data.billboard.Enabled = false end
+            if data.highlight then data.highlight.Enabled = false end
+            if data.model then RemoveSkeleton(data.model) end
+        end
+        for _, data in pairs(NPCObjects) do
+            if data.billboard then data.billboard.Enabled = false end
+            if data.highlight then data.highlight.Enabled = false end
+            if data.model then RemoveSkeleton(data.model) end
+        end
+        return
+    end
+
+    -- Update players
+    for player, data in pairs(PlayerObjects) do
+        if not player or not player.Parent then
+            if data.billboard then data.billboard:Destroy() end
+            if data.highlight then data.highlight:Destroy() end
+            if data.model then RemoveSkeleton(data.model) end
+            PlayerObjects[player] = nil
+        else
+            -- Refresh character reference if needed
+            if not data.model or not data.model.Parent then
+                if player.Character then
+                    local newData = CreateESP(player.Character, false)
+                    if newData then
+                        PlayerObjects[player] = newData
+                    end
+                end
+            else
+                UpdateESP(data)
+            end
+        end
+    end
+
+    -- Scan for NPCs periodically
+    local now = tick()
+    if now - lastNPCScan > NPC_SCAN_INTERVAL then
+        lastNPCScan = now
+
+        local npcs = GetNPCs()
+
+        -- Create ESP for new NPCs
+        for _, npc in ipairs(npcs) do
+            if not NPCObjects[npc] then
+                local data = CreateESP(npc, true)
+                if data then
+                    NPCObjects[npc] = data
+                end
+            end
+        end
+
+        -- Remove dead/gone NPCs
+        for npc, data in pairs(NPCObjects) do
+            if not npc or not npc.Parent then
+                if data.billboard then data.billboard:Destroy() end
+                if data.highlight then data.highlight:Destroy() end
+                RemoveSkeleton(npc)
+                NPCObjects[npc] = nil
+            end
+        end
+    end
+
+    -- Update NPCs
+    for npc, data in pairs(NPCObjects) do
+        UpdateESP(data)
+    end
 end
 
--- Update loop
 RunService.RenderStepped:Connect(function()
     ESP.Update()
 end)
+
+-- ------------------------------------------------------------
+-- Config Interface
+-- ------------------------------------------------------------
+
+function ESP.SetConfig(key, value)
+    Config[key] = value
+end
+
+function ESP.GetConfig(key)
+    return Config[key]
+end
+
+function ESP.GetConfigTable()
+    return Config
+end
 
 -- ------------------------------------------------------------
 -- Lifecycle
 -- ------------------------------------------------------------
 
 function ESP.Init(deps)
-    Config = deps.Config
-    Utils = deps.Utils
-    GUI = deps.GUI
-
-    -- Verify Config loaded
-    if not Config then
-        warn("[TWD] ESP: Config not loaded!")
-        return
-    end
-    if not Config.Settings then
-        warn("[TWD] ESP: Config.Settings not loaded!")
-        return
-    end
-
     print("[TWD] ESP module initialized.")
 end
 
 function ESP.Cleanup()
-    for player, data in pairs(PlayerESPObjects) do
+    for _, data in pairs(PlayerObjects) do
         if data.billboard then data.billboard:Destroy() end
         if data.highlight then data.highlight:Destroy() end
-        if data.box then data.box:Destroy() end
+        if data.model then RemoveSkeleton(data.model) end
     end
-    table.clear(PlayerESPObjects)
+    table.clear(PlayerObjects)
 
-    for zombie, data in pairs(ZombieESPObjects) do
+    for _, data in pairs(NPCObjects) do
         if data.billboard then data.billboard:Destroy() end
         if data.highlight then data.highlight:Destroy() end
-        if data.box then data.box:Destroy() end
+        if data.model then RemoveSkeleton(data.model) end
     end
-    table.clear(ZombieESPObjects)
-
-    for item, data in pairs(LootESPObjects) do
-        if data.billboard then data.billboard:Destroy() end
-        if data.highlight then data.highlight:Destroy() end
-    end
-    table.clear(LootESPObjects)
+    table.clear(NPCObjects)
 end
 
 return ESP
