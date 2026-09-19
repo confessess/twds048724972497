@@ -4,6 +4,7 @@
 -- ============================================================
 
 local baseUrl = "https://raw.githubusercontent.com/confessess/twds048724972497/main/"
+local UserInputService = game:GetService("UserInputService")
 
 print("[TWD] Loading modules...")
 local GUI = loadstring(game:HttpGet(baseUrl .. "gui.lua"))()
@@ -128,7 +129,7 @@ do
         keybindBtn.Position = UDim2.new(0.45, 0, 0.5, -13)
         keybindBtn.BackgroundColor3 = Color3.fromRGB(35, 35, 48)
         keybindBtn.BorderSizePixel = 0
-        keybindBtn.Text = "None"
+        keybindBtn.Text = "E"
         keybindBtn.TextColor3 = Color3.fromRGB(80, 140, 255)
         keybindBtn.Font = Enum.Font.GothamBold
         keybindBtn.TextSize = 12
@@ -182,7 +183,7 @@ do
 
         clearBtn.MouseButton1Click:Connect(function()
             Aimbot.SetKeybind(nil)
-            keybindBtn.Text = "None"
+            keybindBtn.Text = "E"
         end)
 
         setAimbotOpen(false)
