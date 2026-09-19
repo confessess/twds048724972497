@@ -1,6 +1,6 @@
 -- ============================================================
--- TWD Online -- ESP (FIXED)
--- Players + NPCs, Boxes, Chams, Names, Health, Items, Distance
+-- TWD Online -- ESP (NO BOXES - Fixed)
+-- Players + NPCs, Chams, Names, Health, Items, Distance
 -- ============================================================
 
 local ESP = {}
@@ -17,7 +17,6 @@ local Config = {
     InfiniteDistance = false,
     MaxDistance = 500,
     
-    Boxes = true,
     Chams = false,
     Names = true,
     Health = true,
@@ -122,27 +121,15 @@ local function CreateESP(model, isNPC)
     distLabel.TextSize = 11
     distLabel.Parent = billboard
     
-    -- Chams
+    -- Chams (Highlight - this is the "box" effect)
     local highlight = Instance.new("Highlight")
     highlight.Adornee = model
     highlight.FillColor = color
     highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    highlight.FillTransparency = 0.5
+    highlight.FillTransparency = 0.7
     highlight.OutlineTransparency = 0
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     highlight.Parent = model
-    
-    -- Box (FIXED: Using Visible instead of Enabled)
-    local box = Instance.new("BoxHandleAdornment")
-    box.Name = "ESP_Box"
-    box.Size = Vector3.new(4, 6, 2)
-    box.Color3 = color
-    box.Transparency = 0.5
-    box.AlwaysOnTop = true
-    box.ZIndex = 10
-    box.Adornee = root
-    box.Visible = false
-    box.Parent = root
     
     return {
         model = model,
@@ -156,7 +143,6 @@ local function CreateESP(model, isNPC)
         itemLabel = itemLabel,
         distLabel = distLabel,
         highlight = highlight,
-        box = box,
         isNPC = isNPC,
     }
 end
@@ -172,7 +158,6 @@ local function UpdateESP(data)
     if not humanoid or humanoid.Health <= 0 then
         if data.billboard then data.billboard.Enabled = false end
         if data.highlight then data.highlight.Enabled = false end
-        if data.box then data.box.Visible = false end
         return false
     end
     
@@ -180,7 +165,6 @@ local function UpdateESP(data)
     if not Config.Enabled then
         if data.billboard then data.billboard.Enabled = false end
         if data.highlight then data.highlight.Enabled = false end
-        if data.box then data.box.Visible = false end
         return true
     end
     
@@ -188,7 +172,6 @@ local function UpdateESP(data)
     if data.isNPC and not Config.ShowNPCs then
         if data.billboard then data.billboard.Enabled = false end
         if data.highlight then data.highlight.Enabled = false end
-        if data.box then data.box.Visible = false end
         return true
     end
     
@@ -200,7 +183,6 @@ local function UpdateESP(data)
     if not Config.InfiniteDistance and distance > Config.MaxDistance then
         if data.billboard then data.billboard.Enabled = false end
         if data.highlight then data.highlight.Enabled = false end
-        if data.box then data.box.Visible = false end
         return true
     end
     
@@ -252,11 +234,6 @@ local function UpdateESP(data)
     -- Chams
     if data.highlight then
         data.highlight.Enabled = Config.Chams
-    end
-    
-    -- Box (FIXED: Using Visible)
-    if data.box then
-        data.box.Visible = Config.Boxes
     end
     
     return true
@@ -377,7 +354,6 @@ local function OnPlayerAdded(player)
             local data = PlayerObjects[player]
             if data.billboard then data.billboard:Destroy() end
             if data.highlight then data.highlight:Destroy() end
-            if data.box then data.box:Destroy() end
             PlayerObjects[player] = nil
         end
     end)
@@ -396,7 +372,6 @@ Players.PlayerRemoving:Connect(function(player)
         local data = PlayerObjects[player]
         if data.billboard then data.billboard:Destroy() end
         if data.highlight then data.highlight:Destroy() end
-        if data.box then data.box:Destroy() end
         PlayerObjects[player] = nil
     end
 end)
@@ -413,12 +388,10 @@ function ESP.Update()
         for _, data in pairs(PlayerObjects) do
             if data.billboard then data.billboard.Enabled = false end
             if data.highlight then data.highlight.Enabled = false end
-            if data.box then data.box.Visible = false end
         end
         for _, data in pairs(NPCObjects) do
             if data.billboard then data.billboard.Enabled = false end
             if data.highlight then data.highlight.Enabled = false end
-            if data.box then data.box.Visible = false end
         end
         return
     end
@@ -428,7 +401,6 @@ function ESP.Update()
         if not player or not player.Parent then
             if data.billboard then data.billboard:Destroy() end
             if data.highlight then data.highlight:Destroy() end
-            if data.box then data.box:Destroy() end
             PlayerObjects[player] = nil
         elseif not data.model or not data.model.Parent then
             if player.Character then
@@ -458,7 +430,6 @@ function ESP.Update()
             if not npc or not npc.Parent then
                 if data.billboard then data.billboard:Destroy() end
                 if data.highlight then data.highlight:Destroy() end
-                if data.box then data.box:Destroy() end
                 NPCObjects[npc] = nil
             end
         end
@@ -495,12 +466,10 @@ function ESP.Cleanup()
     for _, data in pairs(PlayerObjects) do
         if data.billboard then data.billboard:Destroy() end
         if data.highlight then data.highlight:Destroy() end
-        if data.box then data.box:Destroy() end
     end
     for _, data in pairs(NPCObjects) do
         if data.billboard then data.billboard:Destroy() end
         if data.highlight then data.highlight:Destroy() end
-        if data.box then data.box:Destroy() end
     end
     table.clear(PlayerObjects)
     table.clear(NPCObjects)
