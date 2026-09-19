@@ -46,22 +46,22 @@ local Defaults = {
     LootESP_Attachments    = false,
     LootESP_Clothes        = false,
     LootESP_MaxDistance    = 200,
-    LootESP_ShowName       = true,
+    LootESP_ShowName       = false,
     LootESP_ShowDistance   = false,
 
     -- Aimbot
     Aimbot_Enabled         = false,
-    Aimbot_WallCheck       = true,
-    Aimbot_TeamCheck       = true,
-    Aimbot_Smoothness      = true,
+    Aimbot_WallCheck       = false,
+    Aimbot_TeamCheck       = false,
+    Aimbot_Smoothness      = false,
     Aimbot_SmoothValue     = 5,
-    Aimbot_Prediction      = true,
+    Aimbot_Prediction      = false,
     Aimbot_PredStrength    = 5,
     Aimbot_AimPart         = "Head",
     Aimbot_ShowFOV         = false,
     Aimbot_FOVSize         = 250,
     Aimbot_TargetZombies   = false,
-    Aimbot_TargetPlayers   = true,
+    Aimbot_TargetPlayers   = false,
     Aimbot_Priority        = "Crosshair", -- Crosshair, Distance, Health
 
     -- Misc

@@ -5,7 +5,9 @@
 
 local Misc = {}
 
-local Config, Utils, GUI
+local Config = nil
+local Utils = nil
+local GUI = nil
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
@@ -84,6 +86,7 @@ local function setFullbright(enabled)
 end
 
 function Misc.Update()
+    if not Config or not Config.Settings then return end
     -- Check for config changes
     local S = Config.Settings
 

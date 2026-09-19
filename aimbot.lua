@@ -11,7 +11,9 @@ local Camera = workspace.CurrentCamera
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
-local Config, Utils, GUI
+local Config = nil
+local Utils = nil
+local GUI = nil
 
 -- State
 local currentTarget = nil
@@ -317,6 +319,7 @@ end
 -- ------------------------------------------------------------
 
 function Aimbot.Update()
+    if not Config or not Config.Settings then return end
     updateAimbot()
 end
 
@@ -363,6 +366,16 @@ function Aimbot.Init(deps)
     Config = deps.Config
     Utils = deps.Utils
     GUI = deps.GUI
+
+    -- Verify Config loaded
+    if not Config then
+        warn("[TWD] Aimbot: Config not loaded!")
+        return
+    end
+    if not Config.Settings then
+        warn("[TWD] Aimbot: Config.Settings not loaded!")
+        return
+    end
 
     print("[TWD] Aimbot module initialized.")
 end

@@ -10,7 +10,9 @@ local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 
-local Config, Utils, GUI
+local Config = nil
+local Utils = nil
+local GUI = nil
 
 -- ESP Colors
 local COLORS = {
@@ -695,6 +697,7 @@ end)
 -- ------------------------------------------------------------
 
 function ESP.Update()
+    if not Config or not Config.Settings then return end
     UpdatePlayerESP()
     UpdateZombieESP()
     UpdateLootESP()
@@ -713,6 +716,16 @@ function ESP.Init(deps)
     Config = deps.Config
     Utils = deps.Utils
     GUI = deps.GUI
+
+    -- Verify Config loaded
+    if not Config then
+        warn("[TWD] ESP: Config not loaded!")
+        return
+    end
+    if not Config.Settings then
+        warn("[TWD] ESP: Config.Settings not loaded!")
+        return
+    end
 
     print("[TWD] ESP module initialized.")
 end
