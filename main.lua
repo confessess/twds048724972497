@@ -1,17 +1,19 @@
 -- ============================================================
 -- The Walking Dead Online -- Main
--- Entry point, module loader
+-- Loads all modules from GitHub
 -- ============================================================
+
+local baseUrl = "https://raw.githubusercontent.com/confessess/twds048724972497/main/"
 
 local TWD = {}
 
--- Load modules
-local Config = loadstring(readfile("TWDOnline/config.lua"))()
-local Utils = loadstring(readfile("TWDOnline/utils.lua"))()
-local GUI = loadstring(readfile("TWDOnline/gui.lua"))()
-local ESP = loadstring(readfile("TWDOnline/esp.lua"))()
-local Aimbot = loadstring(readfile("TWDOnline/aimbot.lua"))()
-local Misc = loadstring(readfile("TWDOnline/misc.lua"))()
+-- Load modules from GitHub
+local Config = loadstring(game:HttpGet(baseUrl .. "config.lua"))()
+local Utils = loadstring(game:HttpGet(baseUrl .. "utils.lua"))()
+local GUI = loadstring(game:HttpGet(baseUrl .. "gui.lua"))()
+local ESP = loadstring(game:HttpGet(baseUrl .. "esp.lua"))()
+local Aimbot = loadstring(game:HttpGet(baseUrl .. "aimbot.lua"))()
+local Misc = loadstring(game:HttpGet(baseUrl .. "misc.lua"))()
 
 -- Dependencies
 local deps = {
@@ -32,12 +34,12 @@ do
     if page then
         local C = GUI.Components
         local S = Config.Settings
-
+        
         -- ========================================
         -- PLAYER ESP MASTER SECTION
         -- ========================================
         local playerSection, setPlayerOpen = C.MasterSection(page, "Player ESP", 1, S.PlayerESP_Enabled)
-
+        
         C.Toggle(playerSection, "Enabled", S.PlayerESP_Enabled, function(v)
             Config.Set("PlayerESP_Enabled", v)
         end, 2)
@@ -65,14 +67,14 @@ do
         C.Slider(playerSection, "Max Distance", 100, 2000, S.PlayerESP_MaxDistance, function(v)
             Config.Set("PlayerESP_MaxDistance", v)
         end, 10)
-
+        
         setPlayerOpen(S.PlayerESP_Enabled)
-
+        
         -- ========================================
         -- ZOMBIE ESP MASTER SECTION
         -- ========================================
         local zombieSection, setZombieOpen = C.MasterSection(page, "Zombie ESP", 20, S.ZombieESP_Enabled)
-
+        
         C.Toggle(zombieSection, "Enabled", S.ZombieESP_Enabled, function(v)
             Config.Set("ZombieESP_Enabled", v)
         end, 21)
@@ -97,14 +99,14 @@ do
         C.Slider(zombieSection, "Max Distance", 50, 1000, S.ZombieESP_MaxDistance, function(v)
             Config.Set("ZombieESP_MaxDistance", v)
         end, 28)
-
+        
         setZombieOpen(S.ZombieESP_Enabled)
-
+        
         -- ========================================
         -- LOOT ESP MASTER SECTION
         -- ========================================
         local lootSection, setLootOpen = C.MasterSection(page, "Loot ESP", 40, S.LootESP_Enabled)
-
+        
         C.Toggle(lootSection, "Enabled", S.LootESP_Enabled, function(v)
             Config.Set("LootESP_Enabled", v)
         end, 41)
@@ -138,7 +140,7 @@ do
         C.Slider(lootSection, "Max Distance", 50, 500, S.LootESP_MaxDistance, function(v)
             Config.Set("LootESP_MaxDistance", v)
         end, 51)
-
+        
         setLootOpen(S.LootESP_Enabled)
     end
 end
@@ -149,12 +151,9 @@ do
     if page then
         local C = GUI.Components
         local S = Config.Settings
-
-        -- ========================================
-        -- AIMBOT MASTER SECTION
-        -- ========================================
+        
         local aimbotSection, setAimbotOpen = C.MasterSection(page, "Aimbot", 1, S.Aimbot_Enabled)
-
+        
         C.Toggle(aimbotSection, "Enabled", S.Aimbot_Enabled, function(v)
             Config.Set("Aimbot_Enabled", v)
         end, 2)
@@ -194,7 +193,7 @@ do
         C.Slider(aimbotSection, "Prediction Strength", 1, 20, S.Aimbot_PredStrength, function(v)
             Config.Set("Aimbot_PredStrength", v)
         end, 14)
-
+        
         setAimbotOpen(S.Aimbot_Enabled)
     end
 end
@@ -205,19 +204,16 @@ do
     if page then
         local C = GUI.Components
         local S = Config.Settings
-
-        -- ========================================
-        -- VISUALS MASTER SECTION
-        -- ========================================
+        
         local visualSection, setVisualOpen = C.MasterSection(page, "Visuals", 1, false)
-
+        
         C.Toggle(visualSection, "No Grass", S.NoGrass_Enabled, function(v)
             Config.Set("NoGrass_Enabled", v)
         end, 2)
         C.Toggle(visualSection, "Fullbright", S.Fullbright_Enabled, function(v)
             Config.Set("Fullbright_Enabled", v)
         end, 3)
-
+        
         setVisualOpen(false)
     end
 end

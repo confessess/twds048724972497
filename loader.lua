@@ -1,13 +1,6 @@
--- TWD Online Loader
--- Run this to load the script
+-- TWD Online Loader - Loads from GitHub
+local baseUrl = "https://raw.githubusercontent.com/confessess/twds048724972497/main/"
 
-local folder = "TWDOnline"
-
--- Create folder if needed
-if makefolder and not (isfolder and isfolder(folder)) then
-    makefolder(folder)
-end
-
--- Download and run main
-local mainCode = readfile(folder .. "/main.lua")
+-- Load main
+local mainCode = game:HttpGet(baseUrl .. "main.lua")
 loadstring(mainCode)()
