@@ -1,15 +1,17 @@
 -- ============================================================
--- TWD Online -- Main
+-- TWD Online -- Main (Fixed)
 -- ESP Only - Loads from GitHub
 -- ============================================================
 
 local baseUrl = "https://raw.githubusercontent.com/confessess/twds048724972497/main/"
 
--- Load modules
+print("[TWD] Loading GUI...")
 local GUI = loadstring(game:HttpGet(baseUrl .. "gui.lua"))()
+
+print("[TWD] Loading ESP...")
 local ESP = loadstring(game:HttpGet(baseUrl .. "esp.lua"))()
 
--- Initialize
+print("[TWD] Initializing...")
 GUI.Init()
 ESP.Init()
 
@@ -79,10 +81,12 @@ do
         local settingsSection, setSettingsOpen = C.MasterSection(content, "Settings", 20, false)
 
         C.Keybind(settingsSection, "Menu Keybind", Enum.KeyCode.RightControl, function(k)
-            -- Keybind handled internally by GUI
+            print("[TWD] Menu keybind changed")
         end, 21)
 
         setSettingsOpen(false)
+    else
+        warn("[TWD] Failed to get content host!")
     end
 end
 

@@ -1,5 +1,5 @@
 -- ============================================================
--- TWD Online -- ESP
+-- TWD Online -- ESP (Fixed)
 -- Players + NPCs, skeletons, chams, names, health, items, distance
 -- ============================================================
 
@@ -32,6 +32,14 @@ local PlayerObjects = {}
 local NPCObjects = {}
 local SkeletonLines = {}
 
+-- Check if Drawing API is available
+local DrawingAvailable = pcall(function()
+    local test = Drawing.new("Line")
+    test:Remove()
+end)
+
+print("[TWD] Drawing API available: " .. tostring(DrawingAvailable))
+
 -- ------------------------------------------------------------
 -- Skeleton Drawing
 -- ------------------------------------------------------------
@@ -54,6 +62,7 @@ local BONE_CONNECTIONS = {
 }
 
 local function CreateSkeletonLine()
+    if not DrawingAvailable then return nil end
     local line = Drawing.new("Line")
     line.Visible = false
     line.Thickness = 1.5
@@ -63,6 +72,8 @@ local function CreateSkeletonLine()
 end
 
 local function UpdateSkeleton(character, color, maxDist)
+    if not DrawingAvailable then return false end
+
     local lines = SkeletonLines[character]
     if not lines then
         lines = {}
@@ -76,17 +87,17 @@ local function UpdateSkeleton(character, color, maxDist)
     local root = character:FindFirstChild("HumanoidRootPart")
     if not localRoot or not root then
         for _, line in ipairs(lines) do
-            line.Visible = false
+            if line then line.Visible = false end
         end
-        return
+        return false
     end
 
     local distance = (root.Position - localRoot.Position).Magnitude
     if not Config.InfiniteDistance and distance > maxDist then
         for _, line in ipairs(lines) do
-            line.Visible = false
+            if line then line.Visible = false end
         end
-        return
+        return false
     end
 
     local visible = false
@@ -96,7 +107,7 @@ local function UpdateSkeleton(character, color, maxDist)
         local partB = character:FindFirstChild(connection[2])
         local line = lines[i]
 
-        if partA and partB then
+        if partA and partB and line then
             local posA, visA = Camera:WorldToViewportPoint(partA.Position)
             local posB, visB = Camera:WorldToViewportPoint(partB.Position)
 
@@ -109,7 +120,7 @@ local function UpdateSkeleton(character, color, maxDist)
             else
                 line.Visible = false
             end
-        else
+        elseif line then
             line.Visible = false
         end
     end
@@ -121,7 +132,7 @@ local function RemoveSkeleton(character)
     local lines = SkeletonLines[character]
     if lines then
         for _, line in ipairs(lines) do
-            line:Remove()
+            if line then line:Remove() end
         end
         SkeletonLines[character] = nil
     end
@@ -138,7 +149,9 @@ local function CreateESP(model, isNPC)
     local humanoid = model:FindFirstChildOfClass("Humanoid")
     local root = model:FindFirstChild("HumanoidRootPart")
 
-    if not head or not humanoid or not root then return nil end
+    if not head or not humanoid or not root then 
+        return nil 
+    end
 
     local color = isNPC and Config.NPCColor or Config.PlayerColor
 
@@ -319,7 +332,7 @@ local function UpdateESP(data)
     end
 
     -- Skeleton
-    if Config.Skeletons then
+    if Config.Skeletons and DrawingAvailable then
         local color = data.isNPC and Config.NPCColor or Config.PlayerColor
         UpdateSkeleton(data.model, color, Config.MaxDistance)
     else
@@ -330,7 +343,7 @@ local function UpdateESP(data)
 end
 
 -- ------------------------------------------------------------
--- NPC Detection
+-- NPC Detection (Improved)
 -- ------------------------------------------------------------
 
 local function IsNPC(model)
@@ -344,7 +357,8 @@ local function IsNPC(model)
     local name = model.Name:lower()
     if name:find("zombie") or name:find("walker") or name:find("infected")
         or name:find("crawler") or name:find("runner") or name:find("bloater")
-        or name:find("npc") or name:find("bandit") or name:find("raider") then
+        or name:find("npc") or name:find("bandit") or name:find("raider")
+        or name:find("shambler") or name:find("ghoul") then
         return true
     end
 
@@ -352,10 +366,28 @@ local function IsNPC(model)
     local parent = model.Parent
     while parent and parent ~= workspace do
         local pname = parent.Name:lower()
-        if pname:find("zombie") or pname:find("npc") or pname:find("walker") or pname:find("infected") then
+        if pname:find("zombie") or pname:find("npc") or pname:find("walker") 
+            or pname:find("infected") or pname:find("bandit") or pname:find("raider") then
             return true
         end
         parent = parent.Parent
+    end
+
+    -- If it has a humanoid but no player, and isn't in Players service, likely NPC
+    -- But we need to be careful not to flag player characters
+    local isInPlayers = false
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character == model then
+            isInPlayers = true
+            break
+        end
+    end
+
+    if not isInPlayers then
+        -- Additional check: NPCs often have specific attributes or names
+        if model:GetAttribute("IsNPC") or model:GetAttribute("ZombieType") then
+            return true
+        end
     end
 
     return false
@@ -372,12 +404,13 @@ local function GetNPCs()
         workspace:FindFirstChild("Infected"),
         workspace:FindFirstChild("Entities"),
         workspace:FindFirstChild("Bandits"),
+        workspace:FindFirstChild("Enemies"),
     }
 
     for _, container in ipairs(containers) do
         if container then
             for _, child in ipairs(container:GetChildren()) do
-                if child:IsA("Model") and IsNPC(child) then
+                if child:IsA("Model") then
                     local humanoid = child:FindFirstChildOfClass("Humanoid")
                     if humanoid and humanoid.Health > 0 then
                         table.insert(npcs, child)
@@ -387,9 +420,9 @@ local function GetNPCs()
         end
     end
 
-    -- Scan workspace
+    -- Scan workspace for any model with humanoid that's not a player
     for _, child in ipairs(workspace:GetChildren()) do
-        if child:IsA("Model") and IsNPC(child) then
+        if child:IsA("Model") and not Players:GetPlayerFromCharacter(child) then
             local humanoid = child:FindFirstChildOfClass("Humanoid")
             if humanoid and humanoid.Health > 0 then
                 local alreadyAdded = false
@@ -425,6 +458,7 @@ local function OnPlayerAdded(player)
             local data = CreateESP(character, false)
             if data then
                 PlayerObjects[player] = data
+                print("[TWD] Created ESP for player: " .. player.Name)
             end
         end
     end)
@@ -438,6 +472,7 @@ local function OnPlayerAdded(player)
                 local data = CreateESP(player.Character, false)
                 if data then
                     PlayerObjects[player] = data
+                    print("[TWD] Created ESP for player: " .. player.Name)
                 end
             end
         end)
@@ -478,8 +513,11 @@ end)
 
 local lastNPCScan = 0
 local NPC_SCAN_INTERVAL = 0.5
+local frameCount = 0
 
 function ESP.Update()
+    frameCount = frameCount + 1
+
     if not Config.Enabled then
         -- Hide all
         for _, data in pairs(PlayerObjects) do
@@ -524,6 +562,12 @@ function ESP.Update()
 
         local npcs = GetNPCs()
 
+        -- Debug: print NPC count occasionally
+        if frameCount % 120 == 0 then
+            print("[TWD] Found " .. #npcs .. " NPCs, " .. 
+                  tostring(function() local c = 0 for _ in pairs(PlayerObjects) do c = c + 1 end return c end)() .. " players with ESP")
+        end
+
         -- Create ESP for new NPCs
         for _, npc in ipairs(npcs) do
             if not NPCObjects[npc] then
@@ -552,7 +596,10 @@ function ESP.Update()
 end
 
 RunService.RenderStepped:Connect(function()
-    ESP.Update()
+    local ok, err = pcall(ESP.Update)
+    if not ok then
+        warn("[TWD] ESP Update error: " .. tostring(err))
+    end
 end)
 
 -- ------------------------------------------------------------
@@ -561,6 +608,7 @@ end)
 
 function ESP.SetConfig(key, value)
     Config[key] = value
+    print("[TWD] Config: " .. key .. " = " .. tostring(value))
 end
 
 function ESP.GetConfig(key)
@@ -577,6 +625,7 @@ end
 
 function ESP.Init(deps)
     print("[TWD] ESP module initialized.")
+    print("[TWD] Drawing API: " .. tostring(DrawingAvailable))
 end
 
 function ESP.Cleanup()
