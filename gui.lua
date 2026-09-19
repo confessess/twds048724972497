@@ -1,5 +1,5 @@
 -- ============================================================
--- TWD Online -- GUI (NO DROPDOWNS)
+-- TWD Online -- GUI (Fixed Layout)
 -- ============================================================
 
 local TweenService = game:GetService("TweenService")
@@ -54,6 +54,7 @@ function Components.Section(page, text, order)
 end
 
 function Components.MasterSection(page, text, order, defaultOpen)
+    -- Main container
     local sectionFrame = Instance.new("Frame")
     sectionFrame.Size = UDim2.new(1, 0, 0, 28)
     sectionFrame.BackgroundTransparency = 1
@@ -61,6 +62,7 @@ function Components.MasterSection(page, text, order, defaultOpen)
     sectionFrame.ClipsDescendants = false
     sectionFrame.Parent = page
 
+    -- Header button
     local header = Instance.new("TextButton")
     header.Size = UDim2.new(1, 0, 0, 28)
     header.BackgroundColor3 = Theme.Element
@@ -70,6 +72,7 @@ function Components.MasterSection(page, text, order, defaultOpen)
     header.Parent = sectionFrame
     corner(header, 4)
 
+    -- Header label
     local headerLbl = Instance.new("TextLabel")
     headerLbl.Size = UDim2.new(1, -40, 1, 0)
     headerLbl.Position = UDim2.new(0, 12, 0, 0)
@@ -81,6 +84,7 @@ function Components.MasterSection(page, text, order, defaultOpen)
     headerLbl.TextXAlignment = Enum.TextXAlignment.Left
     headerLbl.Parent = header
 
+    -- Arrow
     local arrow = Instance.new("TextLabel")
     arrow.Size = UDim2.fromOffset(20, 20)
     arrow.Position = UDim2.new(1, -28, 0.5, -10)
@@ -91,7 +95,9 @@ function Components.MasterSection(page, text, order, defaultOpen)
     arrow.TextSize = 10
     arrow.Parent = header
 
+    -- Content (separate frame below header)
     local content = Instance.new("Frame")
+    content.Name = "Content"
     content.Size = UDim2.new(1, 0, 0, 0)
     content.Position = UDim2.new(0, 0, 0, 32)
     content.BackgroundTransparency = 1
