@@ -1,6 +1,6 @@
 -- ============================================================
--- TWD Online -- ESP
--- Clean ESP: Players + NPCs, Boxes, Chams, Names, Health, Items, Distance
+-- TWD Online -- ESP (FIXED)
+-- Players + NPCs, Boxes, Chams, Names, Health, Items, Distance
 -- ============================================================
 
 local ESP = {}
@@ -16,14 +16,14 @@ local Config = {
     ShowNPCs = true,
     InfiniteDistance = false,
     MaxDistance = 500,
-
+    
     Boxes = true,
     Chams = false,
     Names = true,
     Health = true,
     HeldItem = true,
     Distance = true,
-
+    
     PlayerColor = Color3.fromRGB(255, 60, 60),
     NPCColor = Color3.fromRGB(60, 255, 60),
 }
@@ -38,15 +38,15 @@ local NPCObjects = {}
 
 local function CreateESP(model, isNPC)
     if not model then return nil end
-
+    
     local head = model:FindFirstChild("Head")
     local humanoid = model:FindFirstChildOfClass("Humanoid")
     local root = model:FindFirstChild("HumanoidRootPart")
-
+    
     if not head or not humanoid or not root then return nil end
-
+    
     local color = isNPC and Config.NPCColor or Config.PlayerColor
-
+    
     -- Billboard
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "ESP"
@@ -56,7 +56,7 @@ local function CreateESP(model, isNPC)
     billboard.Size = UDim2.fromOffset(200, 100)
     billboard.StudsOffsetWorldSpace = Vector3.new(0, 2.5, 0)
     billboard.Parent = head
-
+    
     -- Name
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Size = UDim2.new(1, 0, 0, 16)
@@ -67,7 +67,7 @@ local function CreateESP(model, isNPC)
     nameLabel.Font = Enum.Font.GothamBold
     nameLabel.TextSize = 13
     nameLabel.Parent = billboard
-
+    
     -- Health bar background
     local healthBg = Instance.new("Frame")
     healthBg.Size = UDim2.new(0, 6, 0, 50)
@@ -76,7 +76,7 @@ local function CreateESP(model, isNPC)
     healthBg.BackgroundTransparency = 0.3
     healthBg.BorderSizePixel = 0
     healthBg.Parent = billboard
-
+    
     -- Health fill
     local healthFill = Instance.new("Frame")
     healthFill.Size = UDim2.new(1, 0, 1, 0)
@@ -85,7 +85,7 @@ local function CreateESP(model, isNPC)
     healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
     healthFill.BorderSizePixel = 0
     healthFill.Parent = healthBg
-
+    
     -- Health text
     local healthText = Instance.new("TextLabel")
     healthText.Size = UDim2.new(0, 40, 0, 14)
@@ -97,7 +97,7 @@ local function CreateESP(model, isNPC)
     healthText.Font = Enum.Font.GothamBold
     healthText.TextSize = 11
     healthText.Parent = billboard
-
+    
     -- Held item
     local itemLabel = Instance.new("TextLabel")
     itemLabel.Size = UDim2.new(1, 0, 0, 14)
@@ -109,7 +109,7 @@ local function CreateESP(model, isNPC)
     itemLabel.Font = Enum.Font.GothamMedium
     itemLabel.TextSize = 11
     itemLabel.Parent = billboard
-
+    
     -- Distance
     local distLabel = Instance.new("TextLabel")
     distLabel.Size = UDim2.new(1, 0, 0, 14)
@@ -121,7 +121,7 @@ local function CreateESP(model, isNPC)
     distLabel.Font = Enum.Font.GothamMedium
     distLabel.TextSize = 11
     distLabel.Parent = billboard
-
+    
     -- Chams
     local highlight = Instance.new("Highlight")
     highlight.Adornee = model
@@ -131,8 +131,8 @@ local function CreateESP(model, isNPC)
     highlight.OutlineTransparency = 0
     highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     highlight.Parent = model
-
-    -- Box
+    
+    -- Box (FIXED: Using Visible instead of Enabled)
     local box = Instance.new("BoxHandleAdornment")
     box.Name = "ESP_Box"
     box.Size = Vector3.new(4, 6, 2)
@@ -141,8 +141,9 @@ local function CreateESP(model, isNPC)
     box.AlwaysOnTop = true
     box.ZIndex = 10
     box.Adornee = root
+    box.Visible = false
     box.Parent = root
-
+    
     return {
         model = model,
         humanoid = humanoid,
@@ -166,59 +167,59 @@ end
 
 local function UpdateESP(data)
     if not data or not data.model or not data.model.Parent then return false end
-
+    
     local humanoid = data.humanoid
     if not humanoid or humanoid.Health <= 0 then
         if data.billboard then data.billboard.Enabled = false end
         if data.highlight then data.highlight.Enabled = false end
-        if data.box then data.box.Enabled = false end
+        if data.box then data.box.Visible = false end
         return false
     end
-
+    
     -- Check enabled
     if not Config.Enabled then
         if data.billboard then data.billboard.Enabled = false end
         if data.highlight then data.highlight.Enabled = false end
-        if data.box then data.box.Enabled = false end
+        if data.box then data.box.Visible = false end
         return true
     end
-
+    
     -- Check NPC toggle
     if data.isNPC and not Config.ShowNPCs then
         if data.billboard then data.billboard.Enabled = false end
         if data.highlight then data.highlight.Enabled = false end
-        if data.box then data.box.Enabled = false end
+        if data.box then data.box.Visible = false end
         return true
     end
-
+    
     -- Distance check
     local localRoot = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
     if not localRoot then return true end
-
+    
     local distance = (data.root.Position - localRoot.Position).Magnitude
     if not Config.InfiniteDistance and distance > Config.MaxDistance then
         if data.billboard then data.billboard.Enabled = false end
         if data.highlight then data.highlight.Enabled = false end
-        if data.box then data.box.Enabled = false end
+        if data.box then data.box.Visible = false end
         return true
     end
-
+    
     -- Enable billboard
     if data.billboard then
         data.billboard.Enabled = true
-
+        
         -- Name
         if data.nameLabel then
             data.nameLabel.Visible = Config.Names
         end
-
+        
         -- Health
         if data.healthBg and data.healthFill then
             data.healthBg.Visible = Config.Health
             data.healthFill.Visible = Config.Health
             local pct = math.clamp(humanoid.Health / math.max(humanoid.MaxHealth, 1), 0, 1)
             data.healthFill.Size = UDim2.new(1, 0, pct, 0)
-
+            
             if pct > 0.6 then
                 data.healthFill.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
             elseif pct > 0.3 then
@@ -226,38 +227,38 @@ local function UpdateESP(data)
             else
                 data.healthFill.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
             end
-
+            
             if data.healthText then
                 data.healthText.Visible = Config.Health
                 data.healthText.Text = tostring(math.floor(humanoid.Health))
                 data.healthText.TextColor3 = data.healthFill.BackgroundColor3
             end
         end
-
+        
         -- Held item
         if data.itemLabel then
             data.itemLabel.Visible = Config.HeldItem
             local tool = data.model:FindFirstChildOfClass("Tool")
             data.itemLabel.Text = tool and tool.Name or ""
         end
-
+        
         -- Distance
         if data.distLabel then
             data.distLabel.Visible = Config.Distance
             data.distLabel.Text = string.format("%.0f studs", distance)
         end
     end
-
+    
     -- Chams
     if data.highlight then
         data.highlight.Enabled = Config.Chams
     end
-
-    -- Box
+    
+    -- Box (FIXED: Using Visible)
     if data.box then
-        data.box.Enabled = Config.Boxes
+        data.box.Visible = Config.Boxes
     end
-
+    
     return true
 end
 
@@ -268,10 +269,10 @@ end
 local function IsNPC(model)
     if not model or not model:IsA("Model") then return false end
     if Players:GetPlayerFromCharacter(model) then return false end
-
+    
     local humanoid = model:FindFirstChildOfClass("Humanoid")
     if not humanoid then return false end
-
+    
     local name = model.Name:lower()
     if name:find("zombie") or name:find("walker") or name:find("infected")
         or name:find("crawler") or name:find("runner") or name:find("bloater")
@@ -279,7 +280,7 @@ local function IsNPC(model)
         or name:find("shambler") or name:find("ghoul") then
         return true
     end
-
+    
     local parent = model.Parent
     while parent and parent ~= workspace do
         local pname = parent.Name:lower()
@@ -289,13 +290,13 @@ local function IsNPC(model)
         end
         parent = parent.Parent
     end
-
+    
     return false
 end
 
 local function GetNPCs()
     local npcs = {}
-
+    
     local containers = {
         workspace:FindFirstChild("Zombies"),
         workspace:FindFirstChild("NPCs"),
@@ -305,7 +306,7 @@ local function GetNPCs()
         workspace:FindFirstChild("Bandits"),
         workspace:FindFirstChild("Enemies"),
     }
-
+    
     for _, container in ipairs(containers) do
         if container then
             for _, child in ipairs(container:GetChildren()) do
@@ -318,7 +319,7 @@ local function GetNPCs()
             end
         end
     end
-
+    
     for _, child in ipairs(workspace:GetChildren()) do
         if child:IsA("Model") and not Players:GetPlayerFromCharacter(child) then
             local humanoid = child:FindFirstChildOfClass("Humanoid")
@@ -333,7 +334,7 @@ local function GetNPCs()
             end
         end
     end
-
+    
     return npcs
 end
 
@@ -343,12 +344,12 @@ end
 
 local function OnPlayerAdded(player)
     if player == LocalPlayer then return end
-
+    
     player.CharacterAdded:Connect(function(character)
         character:WaitForChild("Head", 5)
         character:WaitForChild("HumanoidRootPart", 5)
         task.wait(0.3)
-
+        
         if not PlayerObjects[player] then
             local data = CreateESP(character, false)
             if data then
@@ -356,12 +357,12 @@ local function OnPlayerAdded(player)
             end
         end
     end)
-
+    
     if player.Character then
         task.spawn(function()
             player.Character:WaitForChild("Head", 5)
             task.wait(0.3)
-
+            
             if not PlayerObjects[player] then
                 local data = CreateESP(player.Character, false)
                 if data then
@@ -370,7 +371,7 @@ local function OnPlayerAdded(player)
             end
         end)
     end
-
+    
     player.CharacterRemoving:Connect(function(character)
         if PlayerObjects[player] then
             local data = PlayerObjects[player]
@@ -412,16 +413,16 @@ function ESP.Update()
         for _, data in pairs(PlayerObjects) do
             if data.billboard then data.billboard.Enabled = false end
             if data.highlight then data.highlight.Enabled = false end
-            if data.box then data.box.Enabled = false end
+            if data.box then data.box.Visible = false end
         end
         for _, data in pairs(NPCObjects) do
             if data.billboard then data.billboard.Enabled = false end
             if data.highlight then data.highlight.Enabled = false end
-            if data.box then data.box.Enabled = false end
+            if data.box then data.box.Visible = false end
         end
         return
     end
-
+    
     -- Update players
     for player, data in pairs(PlayerObjects) do
         if not player or not player.Parent then
@@ -438,21 +439,21 @@ function ESP.Update()
             UpdateESP(data)
         end
     end
-
+    
     -- Scan NPCs
     local now = tick()
     if now - lastNPCScan > NPC_SCAN_INTERVAL then
         lastNPCScan = now
-
+        
         local npcs = GetNPCs()
-
+        
         for _, npc in ipairs(npcs) do
             if not NPCObjects[npc] then
                 local data = CreateESP(npc, true)
                 if data then NPCObjects[npc] = data end
             end
         end
-
+        
         for npc, data in pairs(NPCObjects) do
             if not npc or not npc.Parent then
                 if data.billboard then data.billboard:Destroy() end
@@ -462,7 +463,7 @@ function ESP.Update()
             end
         end
     end
-
+    
     -- Update NPCs
     for npc, data in pairs(NPCObjects) do
         UpdateESP(data)
