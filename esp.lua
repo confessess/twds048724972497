@@ -521,18 +521,50 @@ local function OnPlayerAdded(player)
     end
 end
 
+-- Initial setup
 for _, player in ipairs(Players:GetPlayers()) do
     if player ~= LocalPlayer then
         OnPlayerAdded(player)
     end
 end
 
-Players.PlayerAdded:Connect(OnPlayerAdded)
+-- CONSTANT: Watch for new players joining
+Players.PlayerAdded:Connect(function(player)
+    print("[TWD] New player joined: " .. player.Name)
+    OnPlayerAdded(player)
 
+    -- Also try to init immediately if they have a character
+    if player.Character then
+        task.spawn(function()
+            task.wait(0.1)
+            if not ESPDrawingObjects[player] then
+                InitESP(player.Character, false, ESPDrawingObjects)
+            end
+        end)
+    end
+end)
+
+-- Watch for players leaving
 Players.PlayerRemoving:Connect(function(player)
+    print("[TWD] Player left: " .. player.Name)
     if player.Character then
         ClearESP(player.Character, ESPDrawingObjects)
     end
+    ESPDrawingObjects[player] = nil
+end)
+
+-- Watch for character spawns (respawns)
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        print("[TWD] " .. player.Name .. " respawned")
+        task.wait(0.2)
+        -- Clear old ESP if exists
+        if ESPDrawingObjects[player] then
+            ClearESP(ESPDrawingObjects[player].model, ESPDrawingObjects)
+        end
+        -- Create new ESP
+        InitESP(character, false, ESPDrawingObjects)
+    end)
 end)
 
 -- ------------------------------------------------------------
