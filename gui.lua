@@ -1,5 +1,5 @@
 -- ============================================================
--- TWD Online -- GUI
+-- TWD Online -- GUI (NO DROPDOWNS)
 -- ============================================================
 
 local TweenService = game:GetService("TweenService")

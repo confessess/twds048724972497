@@ -144,6 +144,7 @@ local function InitESP(character, isNPC, storageTable)
     local skel = {}
     for i = 1, #SkeletonConnections do
         table.insert(skel, MakeDrawing("Line", {Visible = false, Thickness = 1.5, Color = color, Transparency = 0.8}))
+        table.insert(skel, MakeDrawing("Line", {Visible = false, Thickness = 3, Color = Color3.fromRGB(0,0,0), Transparency = 0.5}))
     end
 
     local b3d = {}
@@ -353,24 +354,32 @@ local function UpdateESPForEntity(character, o)
 
     -- Skeleton
     if Config.Skeleton then
-        for i, conn in ipairs(SkeletonConnections) do
+        local idx = 1
+        for _, conn in ipairs(SkeletonConnections) do
             local p1 = character:FindFirstChild(conn[1])
             local p2 = character:FindFirstChild(conn[2])
-            local line = o.Skel[i]
+            local line = o.Skel[idx]
+            local outline = o.Skel[idx + 1]
+            idx = idx + 2
 
-            if p1 and p2 and line then
+            if p1 and p2 and line and outline then
                 local s1, v1 = W2S(p1.Position)
                 local s2, v2 = W2S(p2.Position)
                 if v1 and v2 then
+                    SetDrawing(outline, "From", s1)
+                    SetDrawing(outline, "To", s2)
+                    SetDrawing(outline, "Visible", true)
                     SetDrawing(line, "From", s1)
                     SetDrawing(line, "To", s2)
                     SetDrawing(line, "Color", color)
                     SetDrawing(line, "Visible", true)
                 else
                     SetDrawing(line, "Visible", false)
+                    SetDrawing(outline, "Visible", false)
                 end
-            elseif line then
-                SetDrawing(line, "Visible", false)
+            else
+                if line then SetDrawing(line, "Visible", false) end
+                if outline then SetDrawing(outline, "Visible", false) end
             end
         end
     else

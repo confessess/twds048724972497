@@ -53,9 +53,13 @@ do
             ESP.SetConfig("Boxes", v)
         end, 11)
 
+        C.Toggle(visualSection, "Skeletons", false, function(v)
+            ESP.SetConfig("Skeleton", v)
+        end, 12)
+
         C.Toggle(visualSection, "Chams", false, function(v)
             ESP.SetConfig("Chams", v)
-        end, 12)
+        end, 13)
 
         C.Toggle(visualSection, "Names", true, function(v)
             ESP.SetConfig("Names", v)
